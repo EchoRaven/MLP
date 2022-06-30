@@ -26,6 +26,10 @@ MLP::MLP(vector<vector<double>>f, vector<vector<double>>r)
 				Min = feature[j][i];
 			}
 		}
+		vector<double>minmax;
+		minmax.push_back(Min);
+		minmax.push_back(Max);
+		MinMax.push_back(minmax);
 		for (UI j = 0; j < data_num; j++)
 		{
 			feature[j][i] = (feature[j][i] - Min) / (Max - Min);
@@ -242,6 +246,8 @@ void MLP::Push_Forward(UI i)
 //反向传播函数(构造delta)
 void MLP::Push_Back(UI index)
 {
+	//先更新结果
+	Push_Forward(index);
 	//先把最后一层算出来
 	Gradent_Loss(index);
 	for (int i = nef_num - 2; i >= 1; i--)
@@ -261,24 +267,22 @@ void MLP::Push_Back(UI index)
 }
 
 //更新神经网络
-void MLP::Update_Neural_Network(UI index,double step,UI max_iter)
+void MLP::Update_Neural_Network(UI index, double step)
 {
-	for (UI i = 0; i < max_iter; i++)
+	Push_Forward(index);
+	Push_Back(index);
+	for (UI j = 0; j < nef_num - 1; j++)
 	{
-		Push_Forward(index);
-		Push_Back(index);
-		for (UI j = 0; j < nef_num - 1; j++)
+		for (UI w = 0; w < neuron_num[j + 1]; w++)
 		{
-			for (UI w = 0; w < neuron_num[j + 1]; w++)
+			for (UI k = 0; k < neuron_num[j]; k++)
 			{
-				for (UI k = 0; k < neuron_num[j]; k++)
-				{
-					neural_network[j][w][k] = neural_network[j][w][k] - step * delta[index][j + 1][w] * data_network[index][j][k];
-				}
-				neural_network[j][w][neuron_num[j]] = neural_network[j][w][neuron_num[j]] - step * delta[index][j + 1][w];
+				neural_network[j][w][k] = neural_network[j][w][k] - step * delta[index][j + 1][w] * data_network[index][j][k];
 			}
+			neural_network[j][w][neuron_num[j]] = neural_network[j][w][neuron_num[j]] - step * delta[index][j + 1][w];
 		}
 	}
+	Push_Forward(index);
 }
 
 //显示delta数组
@@ -352,36 +356,65 @@ void MLP::Show_Predict_result()
 	}
 }
 
-//mini-batch
-void MLP::Mini_batch(UI pick_time, UI max_iter, double step)
+//预测
+vector<double> MLP::Predict(vector<double>&arr)
 {
-	srand(UI(time(0)));
-	UI total = data_num;//总数
-	//构造抽取数列
-	for (UI i = 0; i < pick_time; i++)
+	//对输入数据进行统一处理
+	vector<double>input = arr;
+	for (UI i = 0; i < feature_num; i++)
 	{
-		vector<UI>arr;
-		while (arr.size() < total * 0.2)
+		input[i] = (input[i] - MinMax[i][0]) / (MinMax[i][1] - MinMax[i][0]);
+	}
+	//使用训练好的MLP神经网络获取结果
+	for (UI j = 0; j < nef_num - 2; j++)
+	{
+		vector<double>temp;
+		for (UI o = 0; o < neuron_num[j + 1]; o++)
 		{
-			UI R = rand() % data_num;
-			bool check = true;
-			for (vector<UI>::iterator it = arr.begin(); it != arr.end(); it++)
-			{
-				if (*it == R)
-				{
-					check = false;
-					break;
-				}
-			}
-			if (check)
-			{
-				arr.push_back(R);
-			}
+			temp.push_back(0);
 		}
-		//构造完成
-		for (vector<UI>::iterator it = arr.begin(); it != arr.end(); it++)
+		//逐层传递
+		for (UI k = 0; k < neuron_num[j + 1]; k++)
 		{
-			Update_Neural_Network(*it, step, max_iter);
+			//数列转化
+			for (UI w = 0; w < neuron_num[j]; w++)
+			{
+				temp[k] += input[w] * neural_network[j][k][w];
+			}
+			temp[k] += neural_network[j][k][neuron_num[j]];
+			temp[k] = Activate(temp[k]);
 		}
+		input = temp;
+	}
+	vector<double>predict;
+	for (UI i = 0; i < result_num; i++)
+	{
+		predict.push_back(0);
+	}
+	for (UI j = 0; j < neuron_num[nef_num - 1]; j++)
+	{
+		for (UI k = 0; k < neuron_num[nef_num - 2]; k++)
+		{
+			predict[j] += input[k] * neural_network[nef_num - 2][j][k];
+		}
+		predict[j] += neural_network[nef_num - 2][j][neuron_num[nef_num - 2]];
+		predict[j] = Result_Change(predict[j]);
+	}
+	return predict;
+}
+
+//全处理
+void MLP::All_batch(UI max_iter, double step)
+{
+	for (UI i = 0; i < max_iter; i++)
+	{
+		for (UI j = 0; j < data_num; j++)
+		{
+			Update_Neural_Network(j, step);
+		}
+	}
+	for (UI i = 0; i < data_num; i++)
+	{
+		Push_Forward(i);
 	}
 }

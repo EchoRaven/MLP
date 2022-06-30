@@ -16,6 +16,8 @@ private:
 	vector<vector<double>>feature;
 	//特征数量
 	UI feature_num;
+	//归一化用的数据
+	vector<vector<double>>MinMax;
 	/****************************************/
 
 	/****************************************/
@@ -105,7 +107,7 @@ public:
 	void Push_Back(UI index);
 
 	//更新神经网络(用第几组数据处理，处理步长(训练精度)，最大迭代次数
-	void Update_Neural_Network(UI index, double step, UI max_iter);
+	void Update_Neural_Network(UI index, double step);
 
 	//获取datanum
 	UI Get_data_num();
@@ -113,6 +115,9 @@ public:
 	//获取预测结果
 	void Show_Predict_result();
 
-	//mimi_batch
-	void Mini_batch(UI pick_time, UI max_iter, double step);
+	//all-batch
+	void All_batch(UI max_iter, double step);
+
+	//预测
+	vector<double>Predict(vector<double>&arr);
 };
